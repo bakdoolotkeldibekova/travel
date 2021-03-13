@@ -1,10 +1,10 @@
 package com.example.travel.boot;
 
-import com.example.travel.dto.UserDTO;
-import com.example.travel.entity.Role;
-import com.example.travel.repository.RoleRepository;
-import com.example.travel.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
+//import com.example.travel.dto.UserDTO;
+//import com.example.travel.entity.Role;
+//import com.example.travel.repository.RoleRepository;
+//import com.example.travel.service.UserService;
+//import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
