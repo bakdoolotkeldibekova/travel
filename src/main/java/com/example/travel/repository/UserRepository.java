@@ -10,6 +10,9 @@ import java.util.List;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
     User findByEmail(String email);
+    User findByEmailAndActiveAndDeleted(String email, Boolean active, Boolean deleted);
+    List<User> findAllByDeleted(Boolean deleted);
+    List<User> findAllByActive(Boolean active);
     List<User> findAllByNameContainingIgnoringCase(String name);
     List<User> findAllBySurnameContainingIgnoringCase(String surname);
     List<User> findAllByDateCreatedAfter(LocalDateTime after);

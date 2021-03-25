@@ -25,11 +25,13 @@ public class User extends BaseEntity{
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id")
     private Role role;
-    @Column(name = "date_of_birth")
-    private LocalDateTime dateOfBirth;
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "organization")
     private Organization organization;
-    @Column(name = "description")
-    private String description;
+    @Column(name = "phone_number")
+    private String phoneNumber;
+    @Column(name = "is_active")
+    private Boolean active;
+    @Column(name = "is_deleted", nullable = false)
+    private Boolean deleted;
 }

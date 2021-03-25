@@ -1,6 +1,6 @@
 package com.example.travel.controller;
 
-import com.example.travel.dto.ModeratorDTO;
+import com.example.travel.dto.AdminDTO;
 import com.example.travel.dto.UserChangePasswordDTO;
 import com.example.travel.dto.UserDTO;
 import com.example.travel.entity.ResponseMessage;
@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.file.AccessDeniedException;
 import java.security.Principal;
 import java.util.*;
 
@@ -27,9 +28,14 @@ public class UserController {
         return userService.createUser(userDTO);
     }
 
-    @PostMapping("/createModerator")
-    public ResponseMessage createModerator(@RequestBody ModeratorDTO moderatorDTO){
-        return userService.createModerator(moderatorDTO);
+    @PostMapping("/createAdmin")
+    public ResponseMessage createAdmin(@RequestBody AdminDTO moderatorDTO){
+        return userService.createAdmin(moderatorDTO);
+    }
+
+    @PostMapping("/sendInvitationForAdmin/{email}")
+    public ResponseMessage sendInvitationForAdmin(@PathVariable String email){
+        return userService.sendInvitationForAdmin(email);
     }
 
     @PutMapping("/name/{name}")
@@ -62,9 +68,29 @@ public class UserController {
         return userService.changeForgotPassword(email, newPassword);
     }
 
+    @PutMapping("/block/{email}")
+    public ResponseMessage blockByEmail(@PathVariable String email){
+        return userService.blockByEmail(email);
+    }
+
+    @PutMapping("/unblock/{email}")
+    public ResponseMessage unblockByEmail(@PathVariable String email){
+        return userService.unblockByEmail(email);
+    }
+
+    @DeleteMapping("/delete/{email}")
+    public ResponseMessage deleteByEmail(@PathVariable String email, Principal principal) throws AccessDeniedException {
+        return userService.deleteByEmail(email, principal.getName());
+    }
+
     @GetMapping("/id/{id}")
     public ResponseMessage getById(@PathVariable Long id){
         return userService.getById(id);
+    }
+
+    @GetMapping("/email/{email}")
+    public ResponseMessage getByEmail(@PathVariable String email){
+        return userService.getByEmail(email);
     }
 
     @GetMapping("/get")
@@ -72,6 +98,8 @@ public class UserController {
                                     @RequestParam(required = false) String name,
                                     @RequestParam(required = false) String surname,
                                     @RequestParam(required = false) Long roleId,
+                                    @RequestParam(value = "active", required = false, defaultValue = "true") Boolean active,
+                                    @RequestParam(value = "deleted", required = false, defaultValue = "false") Boolean deleted,
                                     @ApiParam(value="yyyy-MM-dd HH:mm") @RequestParam(required = false) String dateAfter,
                                     @ApiParam(value="yyyy-MM-dd HH:mm") @RequestParam(required = false) String dateBefore){
 
@@ -83,6 +111,10 @@ public class UserController {
             fooSet.retainAll(userService.getAllBySurname(surname));
         if (roleId != null)
             fooSet.retainAll(userService.getALlByRoleId(roleId));
+        if (deleted != null)
+            fooSet.retainAll(userService.getAllByDeleted(deleted));
+        if (active != null)
+            fooSet.retainAll(userService.getAllByActive(active));
         if (dateAfter != null)
             fooSet.retainAll(userService.getAllByDateCreatedAfter(dateAfter));
         if (dateBefore != null)

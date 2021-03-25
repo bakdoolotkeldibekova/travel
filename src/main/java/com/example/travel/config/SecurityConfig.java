@@ -5,6 +5,7 @@ import com.example.travel.service.MyUserDetailsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -46,14 +47,17 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     protected void configure(HttpSecurity http) throws Exception {
         http.cors().and().csrf().disable().authorizeRequests()
                 .antMatchers(AUTH_WHITELIST).permitAll()
-//                .antMatchers("/auth").permitAll()
-//
-//                .antMatchers(HttpMethod.POST, "/user/create").hasRole("SUPERADMIN")
-//                .antMatchers(HttpMethod.PUT, "/user/register/**").permitAll()
-//                .antMatchers(HttpMethod.PUT, "/user/roleId/**").hasRole("SUPERADMIN")
-//                .antMatchers(HttpMethod.GET, "/user/**").hasRole("SUPERADMIN")
-//
-//                .antMatchers("/role").hasRole("SUPERADMIN")
+                .antMatchers("/auth").permitAll()
+
+                .antMatchers(HttpMethod.POST, "/user/createUser").permitAll()
+                .antMatchers(HttpMethod.POST, "/user/createAdmin").permitAll()
+
+                .antMatchers(HttpMethod.POST, "/user/sendInvitationForAdmin/**").hasRole("SUPERADMIN")
+                .antMatchers(HttpMethod.PUT, "/user/roleId/**").hasRole("SUPERADMIN")
+                .antMatchers(HttpMethod.PUT, "/user/block/**").hasRole("SUPERADMIN")
+                .antMatchers(HttpMethod.PUT, "/user/unblock/**").hasRole("SUPERADMIN")
+                .antMatchers(HttpMethod.GET, "/user").hasRole("SUPERADMIN")
+
 //                .anyRequest().authenticated()
                 .anyRequest().permitAll()
                 .and().exceptionHandling()

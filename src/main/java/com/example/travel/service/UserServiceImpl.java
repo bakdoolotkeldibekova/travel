@@ -1,6 +1,6 @@
 package com.example.travel.service;
 
-import com.example.travel.dto.ModeratorDTO;
+import com.example.travel.dto.AdminDTO;
 import com.example.travel.dto.UserChangePasswordDTO;
 import com.example.travel.dto.UserDTO;
 import com.example.travel.entity.ResponseMessage;
@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.nio.file.AccessDeniedException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -33,6 +34,28 @@ public class UserServiceImpl implements UserService {
     private PasswordEncoder encoder;
 
     @Override
+    public ResponseMessage sendInvitationForAdmin(String email) {
+        User user = new User();
+        user.setEmail(email);
+        user.setDeleted(false);
+        user.setActive(false);
+
+        String message = "Hello, ! \n" +
+                " Please, visit next link to register: https://travel-kg.herokuapp.com/user/createAdmin";
+        if (mailService.send(email, "TRAVEL: Registration", message)){
+            userRepository.save(user);
+            return new ResponseMessage(HttpStatus.OK.value(), "Successfully sent", message);
+        }
+        return new ResponseMessage(HttpStatus.BAD_GATEWAY.value(), "smtp server failure, request was not sent", null);
+    }
+
+    @Override
+    public ResponseMessage createSuperAdmin(User user) {
+        user.setPassword(encoder.encode(user.getPassword()));
+        return new ResponseMessage(HttpStatus.OK.value(), "ok!", userRepository.save(user));
+    }
+
+    @Override
     public ResponseMessage createUser(UserDTO userDTO) {
         User user = new User();
         user.setName(userDTO.getName());
@@ -41,22 +64,23 @@ public class UserServiceImpl implements UserService {
         user.setPassword(encoder.encode(userDTO.getPassword()));
         Role role = (Role) roleService.getById(3L).getBody();
         user.setRole(role);
+        user.setActive(true);
+        user.setDeleted(false);
         userRepository.save(user);
         return new ResponseMessage(HttpStatus.OK.value(), "ok!", user);
     }
 
     @Override
-    public ResponseMessage createModerator(ModeratorDTO moderatorDTO) {
-        User user = new User();
-        user.setName(moderatorDTO.getName());
-        user.setSurname(moderatorDTO.getSurname());
-        user.setEmail(moderatorDTO.getEmail());
-        user.setPassword(encoder.encode(moderatorDTO.getPassword()));
+    public ResponseMessage createAdmin(AdminDTO adminDTO) {
+        User user = (User) getByEmail(adminDTO.getEmail()).getBody();
+        user.setName(adminDTO.getName());
+        user.setSurname(adminDTO.getSurname());
+        user.setPassword(encoder.encode(adminDTO.getPassword()));
         Role role = (Role) roleService.getById(2L).getBody();
         user.setRole(role);
-        user.setDateOfBirth(moderatorDTO.getDateOfBirth());
-        user.setDescription(moderatorDTO.getDescription());
-        user.setOrganization(moderatorDTO.getOrganization());
+        user.setOrganization(adminDTO.getOrganization());
+        user.setPhoneNumber(adminDTO.getPhoneNumber());
+        user.setActive(true);
         userRepository.save(user);
         return new ResponseMessage(HttpStatus.OK.value(), "ok!", user);
     }
@@ -65,16 +89,25 @@ public class UserServiceImpl implements UserService {
     public ResponseMessage getById(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(()-> new ResourceNotFoundException("User id " + id +" not found!"));
+        if (!user.getActive() || user.getDeleted())
+            throw new ResourceNotFoundException("User id " + id + " was deleted or blocked");
         return new ResponseMessage(HttpStatus.OK.value(), "ok!", user);
+    }
 
+    @Override
+    public ResponseMessage getByEmail(String email) {
+        User user = userRepository.findByEmail(email);
+        if (user == null)
+                throw new ResourceNotFoundException("User email " + email +" not found!");
+        if (!user.getActive() || user.getDeleted())
+            throw new ResourceNotFoundException("User email " + email + " was deleted or blocked");
+
+        return new ResponseMessage(HttpStatus.OK.value(), "ok!", user);
     }
 
     @Override
     public ResponseMessage changeName(String email, String name) {
-        User user = userRepository.findByEmail(email);
-        if (user == null)
-            throw new ResourceNotFoundException("User email " + email + " not found!");
-
+        User user = (User) getByEmail(email).getBody();
         user.setName(name);
         userRepository.save(user);
         return new ResponseMessage(HttpStatus.OK.value(), email + " user's name successfully changed", user);
@@ -83,9 +116,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public ResponseMessage changeSurname(String email, String surname) {
-        User user = userRepository.findByEmail(email);
-        if (user == null)
-            throw new ResourceNotFoundException("User email " + email + " not found!");
+        User user = (User) getByEmail(email).getBody();
 
         user.setSurname(surname);
         userRepository.save(user);
@@ -95,9 +126,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public ResponseMessage changeRole(String email, Long roleId) {
-        User user = userRepository.findByEmail(email);
-        if (user == null)
-            throw new ResourceNotFoundException("User email " + email + " not found!");
+        User user = (User) getByEmail(email).getBody();
 
         Role role = (Role) roleService.getById(roleId).getBody();
         user.setRole(role);
@@ -107,9 +136,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public ResponseMessage changePassword(UserChangePasswordDTO userChangePasswordDTO) {
-        User user = userRepository.findByEmail(userChangePasswordDTO.getEmail());
-        if (user == null)
-            throw new ResourceNotFoundException("User email " + userChangePasswordDTO.getEmail() + " not found!");
+        User user = (User) getByEmail(userChangePasswordDTO.getEmail()).getBody();
 
         boolean isPasswordMatch = encoder.matches(userChangePasswordDTO.getOldPassword(), user.getPassword());
 
@@ -124,9 +151,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public ResponseMessage sendForgotPassword(String email) {
-        User user = userRepository.findByEmail(email);
-        if (user == null)
-            return new ResponseMessage(HttpStatus.NOT_FOUND.value(), "User email " + email + " not found", null);
+        User user = (User) getByEmail(email).getBody();
 
         String message = "Hello, ! \n" +
                 " Please, visit next link to change your password: https://travel-kg.herokuapp.com/user/changeForgotPassword/" + email;
@@ -138,13 +163,44 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public ResponseMessage changeForgotPassword(String email, String newPassword) {
-        User user = userRepository.findByEmail(email);
-        if (user == null)
-            return new ResponseMessage(HttpStatus.NOT_FOUND.value(), "User email " + email + " not found", null);
+        User user = (User) getByEmail(email).getBody();
 
         user.setPassword(encoder.encode(newPassword));
         userRepository.save(user);
         return new ResponseMessage(HttpStatus.OK.value(), email + " user's password successfully changed", user);
+    }
+
+    @Override
+    public ResponseMessage blockByEmail(String email) {
+        User user = (User) getByEmail(email).getBody();
+        user.setActive(false);
+        userRepository.save(user);
+
+        return new ResponseMessage(HttpStatus.OK.value(), "User successfully blocked", user);
+    }
+
+    @Override
+    public ResponseMessage unblockByEmail(String email) {
+        User user = userRepository.findByEmail(email);
+        if (user == null)
+            throw new ResourceNotFoundException("User email " + email +" not found!");
+        if (user.getDeleted())
+            throw new ResourceNotFoundException("User email " + email + " was deleted");
+
+        user.setActive(true);
+        userRepository.save(user);
+
+        return new ResponseMessage(HttpStatus.OK.value(), "User successfully unblocked", user);
+    }
+
+    @Override
+    public ResponseMessage deleteByEmail(String email, String principalEmail) throws AccessDeniedException {
+        if (!email.equals(principalEmail))
+            throw new AccessDeniedException("Only the user himself can delete his account");
+        User user = (User) getByEmail(email).getBody();
+        user.setDeleted(true);
+        userRepository.save(user);
+        return new ResponseMessage(HttpStatus.OK.value(), "User successfully deleted", user);
     }
 
     @Override
@@ -181,6 +237,16 @@ public class UserServiceImpl implements UserService {
     @Override
     public List<User> getALlByRoleId(Long roleId) {
         return userRepository.findAllByRoleId(roleId);
+    }
+
+    @Override
+    public List<User> getAllByDeleted(Boolean deleted) {
+        return userRepository.findAllByDeleted(deleted);
+    }
+
+    @Override
+    public List<User> getAllByActive(Boolean active) {
+        return userRepository.findAllByActive(active);
     }
 
     @Override
